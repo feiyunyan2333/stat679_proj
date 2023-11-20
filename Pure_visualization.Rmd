@@ -256,6 +256,91 @@ ggraph(G) +
   theme(legend.position = "none")
 ```
 
+## Release Country
+
+```{r}
+library(tmap)
+library(mice)
+data("World")
+#World
+```
+
+```{r}
+movie.long <- movie2 |>
+  drop_na() |>
+  mutate(if_genre = 1) |>
+  pivot_wider(names_from = genre, values_from = if_genre)
+
+movie.long[is.na(movie.long)] = 0
+```
+
+```{r}
+movie.map <- movie.long |>
+  #group_by(release_country, release_year) |>
+  group_by(release_country) |>
+  summarise(gross = mean(gross), score = mean(score),
+            runtime = mean(runtime), cnt = n(),
+            Adventure = sum(Adventure),
+            Action = sum(Action),
+            Comedy = sum(Comedy),
+            Biography = sum(Biography), Animation = sum(Animation)) #|>
+#  mutate(release_year = as.numeric(release_year))
+# movie.map
+```
+```{r}
+colnames(World)[2] <- "release_country"
+
+World[, c(2)] |>
+  left_join(movie.map) |>
+  drop_na() |>
+  tm_shape() +
+#  tm_polygons() +
+  tm_fill("gross", title = "average gross")
+#  tm_fill("cnt", title = "movie releases")
+```
+
+```{r}
+movie.us <- movie.long |>
+  group_by(release_country, release_year) |>
+  summarise(gross = mean(gross), score = mean(score),
+            runtime = mean(runtime), cnt = n(),
+            Adventure = sum(Adventure),
+            Action = sum(Action),
+            Comedy = sum(Comedy),
+            Biography = sum(Biography), Animation = sum(Animation)) |>
+  mutate(release_year = as.numeric(release_year)) |>
+  filter(release_country == "United States") |>
+  filter(release_year %in% 2011:2020) |>
+  mutate(release_year = as.character(release_year))
+#movie.us
+```
+
+```{r}
+usa <- filter(World, release_country == "United States")
+```
+
+```{r, fig.width = 12, fig.height=5}
+usa[, c(2)] |>
+  left_join(movie.us) |>
+  tm_shape() +
+  tm_fill("gross") +
+  tm_facets(by = "release_year", ncol = 5)
+
+```
+
+```{r, fig.width = 16, fig.height=4}
+usa[, c(2)] |>
+  left_join(movie.us) |>
+  mutate(release_year = as.numeric(release_year)) |>
+  filter(release_year %in% 2014:2019) |>
+  mutate(release_year = as.character(release_year)) |>
+  tm_shape() +
+  tm_fill("Comedy") +
+  tm_facets(by = "release_year", ncol = 6)
+
+```
+
+
 
 
 
