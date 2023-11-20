@@ -1,0 +1,269 @@
+---
+title: "STAT 679 milestone 2"
+author: "Xingyu Tang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, message = FALSE, warning=FALSE}
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+movie <- read_csv('https://raw.githubusercontent.com/Star732/UW_Madison_STAT679/main/movies.csv')
+```
+
+## Budget Analysis
+
+#### Correlation Matric for Numericak Features
+
+```{r}
+movie1 <- movie |>
+  drop_na() |>
+  mutate(genre_numeric = as.numeric(factor(genre)))
+
+movie.numeric <- movie1[, c(4,6,7,12,13,15,16)]
+corr <- cor(movie.numeric)
+```
+
+```{r}
+library(reshape2)
+```
+```{r}
+ggplot(melt(corr), aes(Var1, Var2)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2))) +
+  scale_fill_gradient2() +
+  labs(x = "Movie Features", y = "Movie Features", title = "Correlation Matric for Numericak Features") +
+  theme_minimal()
+```
+
+
+### Gross vs Budget
+
+```{r}
+movie |>
+  drop_na() |>
+  ggplot(aes(budget, gross)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(title = "Gross vs Budget") +
+  theme_minimal()
+```
+```{r, fig.width=12, fig.height=7}
+movie |>
+  drop_na() |>
+  ggplot(aes(budget, gross)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_wrap(.~genre, scales = "free_y", nrow = 3) +
+  theme_minimal()
+```
+
+## Release Date Analysis
+
+
+
+```{r}
+movie2 <- movie |>
+  separate(col = released, into = c("release_month", "release_year"), sep = ",") |>
+  separate(col = release_month, into = c("release_month"), sep = " ", extra = "drop") |>
+  separate(col = release_year, into = c("release_year", "release_country"), sep = "\\(") |>
+  separate(col = release_country, into = c("release_country"), sep = "\\)", extra = "drop")
+
+movie2
+```
+```{r}
+library(dplyr)
+
+month_order <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+```
+
+```{r}
+movie2.2 <- movie2 |>
+  drop_na() |>
+  group_by(release_month) |>
+  summarise(movies = n(),
+            sum_gross = mean(gross)) |>
+  mutate(log_gross = log10(sum_gross))
+
+movie2.2$release_month <- factor(movie2.2$release_month, levels = month_order)
+```
+
+```{r, fig.width=12, fig.height=6}
+ggplot(movie2.2, aes(x = release_month)) +
+  geom_col(aes(y = movies, fill = release_month)) +
+  geom_point(aes(y = sum_gross / 342458.8), size = 3, col = "blue") +
+  geom_text(aes(y = movies, label = paste(sep = "\n", "Number", movies))) +
+  geom_text(aes(y = sum_gross/ 342458.8 + 50, label = paste(sep = "\n", "Gross", round(sum_gross, 0))), col = "blue") +
+  scale_y_continuous(name = "Number of Movies", sec.axis = sec_axis(~.*342458.8, name = "Average of Gross")) +
+  theme(axis.text.x = element_text(angle = 45),legend.position = "none")
+```
+
+
+```{r, fig.width=18, fig.height=9}
+movie2 |>
+  drop_na() |>
+  group_by(release_year) |>
+  summarise(movies = n(),
+            mean_gross = mean(gross)) |>
+  mutate(log_gross = log10(mean_gross)) |>
+  ggplot(aes(x = release_year)) +
+  geom_col(aes(y = movies, fill = release_year)) +
+  geom_point(aes(y = mean_gross / 1257285), size = 3, col = "blue") +
+  geom_text(aes(y = movies, label = paste(sep = "\n", "Number", movies)), check_overlap = TRUE) +
+  geom_text(aes(y = mean_gross/ 1257285 - 5, label = round(mean_gross, 0)), col = "blue", check_overlap = TRUE) +
+  scale_y_continuous(name = "Number of Movies", sec.axis = sec_axis(~.*342458.8, name = "Average of Gross")) +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "none")
+```
+
+## Directors and Actors
+
+### Directors vs (Gross or Score)
+
+```{r}
+movie3 <- movie2 |>
+  drop_na() |>
+  group_by(director, star) |>
+  summarise(use = n(),
+            gross = mean(gross),
+            score = mean(score))
+```
+```{r, fig.height=8, fig.width=8}
+movie_dir <- movie3 |>
+  group_by(director) |>
+  summarise(gross = mean(gross),
+            score = mean(score)) |>
+  arrange(desc(gross))
+
+ggplot(movie_dir[1:15,]) +
+  geom_col(aes(x = gross, y = reorder(director, gross), fill = director)) +
+  labs(x = "average gross", y = "director", title = "Director vs Gross (top 15)") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90))
+```
+```{r, fig.height=8, fig.width=8}
+ggplot(movie_dir[1:15,]) +
+  geom_col(aes(x = score, y = reorder(director, score), fill = director)) +
+  labs(x = "average score", y = "director", title = "Director vs Score (top 15)") +
+  theme(legend.position = "none")
+#        axis.text.x = element_text(angle = 90))
+```
+
+### Stars vs (Gross or Score)
+
+```{r, fig.height=8, fig.width=8}
+movie_star <- movie3 |>
+  group_by(star) |>
+  summarise(gross = mean(gross),
+            score = mean(score)) |>
+  arrange(desc(gross))
+
+ggplot(movie_star[1:15,]) +
+  geom_col(aes(x = gross, y = reorder(star, gross), fill = star)) +
+  labs(x = "average gross", y = "director", title = "Star vs Gross (top 15)") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90))
+```
+```{r, fig.height=8, fig.width=8}
+ggplot(movie_star[1:15,]) +
+  geom_col(aes(x = score, y = reorder(star, score), fill = star)) +
+  labs(x = "average score", y = "director", title = "Star vs Score (top 15)") +
+  theme(legend.position = "none",
+        )
+```
+### Structured Graph
+
+```{r}
+### build node
+
+movie3.filter <- movie3 |>
+  filter(use > 3)
+
+dir <- movie3.filter |>
+  pull(director)
+
+star <- movie3.filter |>
+  pull(star)
+
+dir.u <- unique(dir)
+star.u <- unique(star)
+
+cc <- c()
+ccc <- c()
+
+for (i in 1:length(dir)){
+  for (j in 1:length(dir.u)){
+    if (dir[i] == dir.u[j]){
+      cc[i] <- j
+    }
+  }
+}
+
+for (i in 1:length(star)){
+  for (j in 1:length(star.u)){
+    if (star[i] == star.u[j]){
+      ccc[i] <- j+length(dir.u)
+    }
+  }
+}
+```
+
+```{r}
+df <- data.frame(matrix(c(dir, star, cc), ncol = 3))
+df1 <- data.frame(matrix(c(dir, star, ccc), ncol = 3))
+colnames(df) <- c("director", "star", "dir_id")
+colnames(df1) <- c("director", "star", "star_id")
+```
+```{r}
+m <- movie3.filter |>
+  left_join(df) |>
+  left_join(df1)
+m
+```
+
+
+```{r}
+library(ggraph)
+library(tidygraph)
+library(ggrepel)
+```
+
+
+```{r}
+edge <- m[, c(6,7, 3)]
+colnames(edge) <- c("source", "target", "weight")
+edge
+```
+```{r}
+node <- data.frame(id = 1:max(ccc), label = c(dir.u, star.u))
+node
+```
+
+
+```{r}
+G <- tbl_graph(nodes = node, edges = edge)
+```
+
+```{r, fig.width=12, fig.height=7}
+ggraph(G) +
+  geom_edge_link(aes(width = weight)) +
+  geom_node_point(aes(col = label), size = 4) +
+  geom_node_text(aes(label = label), repel = TRUE) +
+  labs(title = "# of Cooperations", subtitle = "Upper Row are Directors and Lower Row are Movie Stars while Width of Edges Represents # of Cooperations") +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+
+
+
+
+
