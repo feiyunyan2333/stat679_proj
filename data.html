@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discover the Best Movies in Your Favorite Genre</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    .filter-container {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+<h1>Let's Find the Best Movies in Your Area of Interest!</h1>
+<div class="filter-container">
+  <label for="ratingSelect">Select Rating:</label>
+  <select id="ratingSelect"></select>
+
+  <label for="genreSelect">Select Genre:</label>
+  <select id="genreSelect"></select>
+
+  <label for="countrySelect">Select Country:</label>
+  <select id="countrySelect"></select>
+</div>
+
+<div class="filter-container">
+  <label for="yearRangeMin">Select Min Year:</label>
+  <input type="range" id="yearRangeMin" min="1986" max="2016" value="1986">
+  <span id="selectedYearMin">1986</span>
+</div>
+
+<div class="filter-container">
+  <label for="yearRangeMax">Select Max Year:</label>
+  <input type="range" id="yearRangeMax" min="1986" max="2016" value="2016">
+  <span id="selectedYearMax">2016</span>
+</div>
+
+<table id="movieTable">
+  <!-- Table content will be dynamically populated by D3.js -->
+</table>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+  // Load CSV data and create table
+  d3.csv("https://raw.githubusercontent.com/VivianBeagle/STAT679/main/movies.csv").then(function(data) {
+    // Populate rating, genre, and country dropdowns
+    var ratings = ["All", ...Array.from(new Set(data.map(d => d.rating)))];
+    var genres = ["All", ...Array.from(new Set(data.map(d => d.genre)))];
+    var countries = ["All", ...Array.from(new Set(data.map(d => d.country)))];
+
+    d3.select("#ratingSelect")
+      .selectAll("option")
+      .data(ratings)
+      .enter().append("option")
+      .text(d => d);
+
+    d3.select("#genreSelect")
+      .selectAll("option")
+      .data(genres)
+      .enter().append("option")
+      .text(d => d);
+
+    d3.select("#countrySelect")
+      .selectAll("option")
+      .data(countries)
+      .enter().append("option")
+      .text(d => d);
+
+    // Sort data by score in descending order
+    data.sort((a, b) => d3.descending(+a.score, +b.score));
+
+    // Initialize table
+    updateTable(data);
+
+    // Add event listeners for filters
+    d3.select("#ratingSelect").on("change", updateTable);
+    d3.select("#genreSelect").on("change", updateTable);
+    d3.select("#countrySelect").on("change", updateTable);
+    d3.select("#yearRangeMin").on("input", function() {
+      d3.select("#selectedYearMin").text(this.value);
+      updateTable();
+    });
+    d3.select("#yearRangeMax").on("input", function() {
+      d3.select("#selectedYearMax").text(this.value);
+      updateTable();
+    });
+
+    // Function to update the table based on the filtered data
+    function updateTable() {
+      var selectedRating = d3.select("#ratingSelect").node().value;
+      var selectedGenre = d3.select("#genreSelect").node().value;
+      var selectedCountry = d3.select("#countrySelect").node().value;
+      var selectedYearMin = +d3.select("#yearRangeMin").node().value;
+      var selectedYearMax = +d3.select("#yearRangeMax").node().value;
+
+      var filteredData = data.filter(d =>
+        (selectedRating === "All" || d.rating === selectedRating) &&
+        (selectedGenre === "All" || d.genre === selectedGenre) &&
+        (selectedCountry === "All" || d.country === selectedCountry) &&
+        (d.year >= selectedYearMin && d.year <= selectedYearMax)
+      );
+
+      var table = d3.select("#movieTable");
+
+      // Remove existing table rows
+      table.selectAll("tr").remove();
+
+      // Append header row
+      var header = table.append("tr");
+      header.selectAll("th")
+        .data(Object.keys(data[0]))
+        .enter().append("th")
+        .text(d => d);
+
+      // Append data rows
+      var rows = table.selectAll("tr.row")
+        .data(filteredData)
+        .enter().append("tr")
+        .attr("class", "row");
+
+      rows.selectAll("td")
+        .data(d => Object.values(d))
+        .enter().append("td")
+        .text(d => d);
+    }
+  });
+</script>
+
+</body>
+</html>
